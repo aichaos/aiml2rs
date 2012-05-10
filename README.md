@@ -12,7 +12,7 @@ RiveScript code.
 How to Use
 ==========
 
-Place all your `*.aiml` files in the `alice/` directory, and then run the
+Place all your `*.aiml` files in the `aiml/` directory, and then run the
 script. It will attempt to convert all the AIML code into RiveScript, and
 will output the results into the `rs/` directory.
 
@@ -25,8 +25,10 @@ automatically. These are:
 1) Embedded `<random>` tags are not supported. Currently none of the RiveScript
 interpreters are able to handle embedded random tags either.
 
-2) Conditionals. The Alice AIML set tends to embed conditions in the middle of
-a template and RiveScript doesn't work this way.
+2) Complicated conditionals. There are only a couple of these in Alice's AIML
+set. Simple conditions should work though (ones where there is only one
+`<condition>` tag, and it takes up the entirety of the template). Embedded
+conditions? Forget about it.
 
 For the cases that `aiml2rs` doesn't handle automatically, it will print out the
 AIML file name and `<pattern>` where the anomoly occurred, so that you can go

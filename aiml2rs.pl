@@ -4,6 +4,7 @@ use 5.14.0;
 use strict;
 use warnings;
 use XML::TokeParser;
+use File::Copy;
 
 if (!-d "./aiml") {
 	die "The aiml/ directory doesn't exist. Create it, and put your AIML documents there.";
@@ -27,6 +28,9 @@ foreach my $file (sort(grep(/\.aiml$/i, readdir($dh)))) {
 	process($file);
 }
 closedir($dh);
+
+# Copy begin.rs.
+copy("./begin.rs", "./rs/rs-begin.rs");
 
 if (@warnings) {
 	print "The following warnings were found. Some of the resulting RS code\n";
@@ -73,6 +77,9 @@ sub process {
 	my $setVal   = ""; # The text for setting a variable.
 	my $inRandom = 0;  # Inside a <random> tag.
 	my @random   = (); # Buffer for <li>'s inside a <random>
+	my $inCond   = 0;  # Inside a <condition> tag.
+	my $condName = ""; # Condition name (<condition name="x">)
+	my @conds    = (); # The conditions
 	my $tainted  = 0;  # Tainted replies w/ embedded <random>'s or conditions we can't handle
 
 	# Parse.
@@ -98,6 +105,11 @@ sub process {
 			elsif ($inRandom) {
 				push @random, "" unless scalar @random;
 				$random[-1] .= $text;
+			}
+			elsif ($inCond) {
+				if (scalar(@conds) > 0) {
+					$conds[-1] .= $text;
+				}
 			}
 			else {
 				$buffer .= $text;
@@ -132,6 +144,12 @@ sub process {
 					next if $tainted;
 					if (!exists $parsed->{$topic}) {
 						$parsed->{$topic} = [];
+					}
+
+					# Conditions?
+					if (@conds) {
+						$category->{condition} = [ @conds ];
+						@conds = ();
 					}
 					push @{$parsed->{$topic}}, $category;
 				}
@@ -209,6 +227,16 @@ sub process {
 						$setVar = "alicetopic";
 					}
 
+					# Special hack to formalize names.
+					if ($setVar eq "name") {
+						$setVal = "{formal}" . $setVal . "{/formal}";
+					}
+
+					# Delete if blank
+					if ($setVal eq "" || $setVal eq "{formal}{/formal}") {
+						$setVal = "<undef>";
+					}
+
 					$newText = "<set $setVar=$setVal>";
 
 					# Echo it back immediately unless <think>.
@@ -241,12 +269,60 @@ sub process {
 					continue;
 				}
 			}
+			when("condition") {
+				# Attempt to handle condition tags.
+				if ($event eq "S") {
+					# We only bother with super simple conditions that follow this pattern:
+					# <template>
+					#  <condition name="x">
+					#   <li value="y">...</li>
+					#  </condition>
+					# </template>
+					$condName = $t->attr->{name} || "";
+					$inCond   = 1;
+					@conds    = ();
+				}
+				elsif ($event eq "E") {
+					$inCond = 0;
+					$condName = "";
+				}
+			}
 			when("li") {
 				# <li> can be part of <random> or <condition>
 				if ($inRandom) {
 					if ($event eq "S") {
 						# New random buffer.
 						push @random, "";
+					}
+				}
+				elsif ($inCond) {
+					if ($event eq "S") {
+						# In a condition.
+						my $name = $condName || (ref $t->attr ? $t->attr->{name} : "");
+						if (!$name) {
+							# Abort!
+							warning("Condition too complicated to handle at $file in pattern $category->{pattern}");
+						}
+						my $value = "";
+						if (ref($t->attr)) {
+							$value = $t->attr->{value} || "";
+						}
+						if ($value) {
+							# Handle special values.
+							$value = "undefined" if $value =~ /^unknown$/i; # unknown -> undefined
+							$value = "undefined" if $value =~ /^om$/i;      # TODO: Alice's brain has this
+							if ($value eq "*") {
+								# * = not undefined
+								push @conds, "<get $name> != undefined => ";
+							}
+							else {
+								push @conds, "<get $name> == $value => ";
+							}
+						}
+						else {
+							# Default condition.
+							$inCond = 0;
+						}
 					}
 				}
 				else {
@@ -297,13 +373,6 @@ sub process {
 				}
 			}
 			default {
-				# Handle condition tags. (hint: we can't). Warn about them.
-				if ($t->tag eq "condition") {
-					warning("Condition tag found at $file in pattern $category->{pattern}");
-					$tainted = 1;
-					next;
-				}
-
 				# New buffer text given above?
 				my $handled = 0;
 				if (!length $newText) {
@@ -321,6 +390,11 @@ sub process {
 				elsif ($inRandom) {
 					push @random, "" unless scalar @random;
 					$random[-1] .= $newText;
+				}
+				elsif ($inCond) {
+					if (scalar @conds > 0) {
+						$conds[-1] .= $newText;
+					}
 				}
 				else {
 					$buffer .= $newText;
@@ -368,6 +442,16 @@ sub toRiveScript {
 				my $that = lc($category->{that});
 				$that =~ s/[^A-Za-z0-9<>\{\}= \*_\#\(\)\[\]]//g;
 				print {$fh} "% $that\n";
+			}
+
+			# Conditions
+			if (exists $category->{condition}) {
+				foreach my $c (@{$category->{condition}}) {
+					$c =~ s/\n/\\n/g;
+					$c =~ s/<br.+?>/\\n/g;
+					$c =~ s/[\x0D\x0A]+//g;
+					print {$fh} "* $c\n";
+				}
 			}
 
 			my $temp = $category->{template};
