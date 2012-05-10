@@ -1,0 +1,4 @@
+Things to do:
+
+* Get at least simple conditions to work. "what is my name" type patterns
+  don't work because they rely on conditions!
