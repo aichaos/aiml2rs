@@ -1044,9 +1044,6 @@
 <category><pattern>HI *</pattern>
 <template><srai>HELLO</srai>.  <srai>  <star /></srai></template>
 </category>
-<category><pattern>HI</pattern>
-<template><srai>HELLO</srai></template>
-</category>
 <category><pattern>WOULD YOU E MAIL ME</pattern>
 <template><srai>email</srai></template>
 </category>

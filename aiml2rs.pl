@@ -466,6 +466,7 @@ sub toRiveScript {
 			if ($temp =~ /^\{random\}(.+?)\{\/random\}$/i) {
 				my @rand = split(/\|/, $1);
 				foreach my $r (@rand) {
+					next unless length $r > 0;
 					print {$fh} "- $r\n";
 				}
 				print {$fh} "\n";
@@ -475,7 +476,7 @@ sub toRiveScript {
 			elsif ($temp =~ /^\{\@([^\}\@]+?)\}$/i) {
 				my $redir = $1;
 				$redir =~ s/[^A-Za-z0-9<>\{\}= \*_\#\(\)\[\]]//g;
-				print {$fh} "\@ " . lc($1) . "\n\n";
+				print {$fh} "\@ " . lc($redir) . "\n\n";
 			}
 
 			# Atomic reply
