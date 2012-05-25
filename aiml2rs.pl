@@ -421,6 +421,8 @@ sub toRiveScript {
 	$rs .= ".rs";
 
 	open (my $fh, ">:utf8", "./rs/$rs");
+	print {$fh} "// Converted using aiml2rs on: " . scalar(localtime()) . "\n"
+		. "! version = 2.0\n\n";
 
 	foreach my $topic (sort keys %{$parsed}) {
 		if ($topic ne "random") {
