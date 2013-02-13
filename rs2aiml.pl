@@ -242,8 +242,8 @@ sub convert_tags {
 
 	# Input/response.
 	$template =~ s/<(input|reply)>/<${1}1>/ig;
-	$template =~ s{<input(\d+)}{<request index="$1" />}ig;
-	$template =~ s{<reply(\d+)}{<response index="$1" />}ig;
+	$template =~ s{<input(\d+)>}{<request index="$1" />}ig;
+	$template =~ s{<reply(\d+)>}{<response index="$1" />}ig;
 
 	# Shortcut tags.
 	$template =~ s{<@>}{<sr />}g;
