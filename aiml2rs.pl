@@ -410,7 +410,66 @@ sub process {
 		}
 	}
 
+	resolveRedirects($parsed);
+
 	toRiveScript($file, $parsed);
+}
+
+sub resolveRedirects {
+	my ($parsed) = @_;
+
+	# For all templates that are simply an <srai> to another one, attempt to
+	# map it back to the original one. So in the output RS we can consolidate
+	# a ton of triggers down into just one. Example, instead of this:
+	#
+	#   + hello
+	#   - Hi there!
+	#
+	#   + hi
+	#   @ hello
+	#
+	# We can have this:
+	#
+	#   + (hello|hi)
+	#   - Hi there!
+
+	foreach my $topic (keys %{$parsed}) {
+		# Make a map that points to each category in the array, by its pattern.
+		my $patternMap = {};
+
+		foreach my $category (@{$parsed->{$topic}}) {
+			my $trig = lc($category->{pattern});
+
+			# Skip syntax errors (these don't save to the output files anyway)
+			if ($trig =~ /[^A-Za-z0-9<>\{\}= \*_\#\(\)\[\]]/) {
+				next;
+			}
+
+			$patternMap->{$trig} = $category; # Save a reference.
+		}
+
+		# Now the pattern map is fully populated with all patterns for this
+		# topic. Go through and find the links.
+		foreach my $pattern (keys %{$patternMap}) {
+			my $temp = $patternMap->{$pattern}->{template};
+			$temp =~ s/\n/\\n/g;
+			$temp =~ s/<br.+?>/\\n/g;
+			$temp =~ s/[\x0D\x0A]+//g;
+
+			# Lowercase redirects.
+			$temp =~ s/\{\@([^\}\@]+?)\}/\L{\@$1}\E/g;
+
+			# Is it a full redirect?
+			if ($temp =~ /^\{\@([^\}\@]+?)\}$/i) {
+				my $redir = $1;
+				$redir =~ s/[^A-Za-z0-9<>\{\}= \*_\#\(\)\[\]]//g;
+
+				# Tack it on as an alias.
+				$patternMap->{$redir}->{aliases}->{$pattern} = 1;
+				$patternMap->{$pattern}->{is_alias} = 1;
+			}
+		}
+	}
 }
 
 sub toRiveScript {
@@ -418,7 +477,7 @@ sub toRiveScript {
 
 	my $rs = $file;
 	$rs =~ s/\.aiml$//ig;
-	$rs .= ".rs";
+	$rs .= ".rive";
 
 	open (my $fh, ">:utf8", "./rs/$rs");
 	print {$fh} "// Converted using aiml2rs on: " . scalar(localtime()) . "\n"
@@ -430,6 +489,11 @@ sub toRiveScript {
 		}
 
 		foreach my $category (@{$parsed->{$topic}}) {
+			# Skip if this whole entire category was just a full redirect (alias).
+			if ($category->{is_alias}) {
+				next;
+			}
+
 			my $trig = lc($category->{pattern});
 
 			# Skip triggers with syntax errors.
@@ -438,7 +502,26 @@ sub toRiveScript {
 				next;
 			}
 
+			# Does the trigger have aliases?
+			my $hasAliases = 0;
+			if (scalar keys %{$category->{aliases}} > 0) {
+				my @aliases = ($trig, keys %{$category->{aliases}});
+				my %aliases = map { $_ => 1 } @aliases;
+				$trig = "(" . join("|", sort keys %aliases) . ")";
+				$hasAliases = 1;
+			}
 			print {$fh} "+ $trig\n";
+
+			# If the trigger has aliases, the <star> counters will all be wrong,
+			# so increment each one by 1.
+			if ($hasAliases) {
+				for my $i (8..1) {
+					foreach my $thing (qw(that condition template)) {
+						my $decrement = $i + 1; # <star1> becomes <star2>, etc.
+						$category->{$thing} =~ s/<star$i>/<star$decrement>/g;
+					}
+				}
+			}
 
 			if ($category->{that}) {
 				my $that = lc($category->{that});
