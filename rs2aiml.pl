@@ -20,14 +20,14 @@ sub warning {
 	push (@warnings, $str);
 }
 
-# Start with begin.rs, if available. Convention says to put your definitions there.
-if (-f "./rs-in/begin.rs") {
-	say "Process: begin.rs";
-	process("begin.rs");
+# Start with begin.rive, if available. Convention says to put your definitions there.
+if (-f "./rs-in/begin.rive") {
+	say "Process: begin.rive";
+	process("begin.rive");
 }
 opendir(my $dh, "./rs-in");
-foreach my $file (sort(grep(/\.rs$/i, readdir($dh)))) {
-	next if $file eq "begin.rs";
+foreach my $file (sort(grep(/\.rive$/i, readdir($dh)))) {
+	next if $file eq "begin.rive";
 	say "Process: $file";
 	process($file);
 }
@@ -206,7 +206,7 @@ sub process {
 
 	# Write.
 	my $name = $file;
-	$name =~ s/\.rs$//ig;
+	$name =~ s/\.rive$//ig;
 	$name .= ".aiml";
 	open (my $fh, ">", "./aiml-out/$name");
 	print {$fh} join("\n",@aiml);

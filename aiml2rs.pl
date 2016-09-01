@@ -29,8 +29,8 @@ foreach my $file (sort(grep(/\.aiml$/i, readdir($dh)))) {
 }
 closedir($dh);
 
-# Copy begin.rs.
-copy("./begin.rs", "./rs/rs-begin.rs");
+# Copy begin.rive.
+copy("./begin.rive", "./rs/rs-begin.rive");
 
 if (@warnings) {
 	print "The following warnings were found. Some of the resulting RS code\n";
