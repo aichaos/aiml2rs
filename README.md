@@ -1,75 +1,70 @@
-aiml2rs
-=======
+# aiml2rs
 
-Tools to convert AIML code into RiveScript code -- and back!
+This is a program to translate AIML code into RiveScript (or vice versa).
 
-Scripts
-=======
+# Usage
 
-The `aiml2rs.pl` script does all the magic of converting Alice AIML code into
-RiveScript code.
+```
+aiml2rs <-rs || -aiml> -in <input directory> -out <output directory>
+```
 
-The `rs2aiml.pl` script does the opposite: converting RiveScript code back
-into AIML code.
+To translate AIML into RiveScript:
 
-How to Use
-==========
+```
+aiml2rs -rs -in ./aiml -out ./rs
+```
 
-Place all your `*.aiml` files in the `aiml/` directory, and then run the
-script. It will attempt to convert all the AIML code into RiveScript, and
-will output the results into the `rs/` directory.
+Or to translate RiveScript into AIML:
 
-For rs2aiml, place your `*.rs` files in the `rs-in/` dirctory, and then run
-`rs2aiml.pl`. It will attempt to convert the RS code into AIML, and output
-the results into `aiml-out/`.
+```
+aiml2rs -aiml -in ./rs -out ./aiml
+```
 
-Caveats
-=======
+If you're testing this program in development, you can substitute the
+`aiml2rs` commands above with `go run main.go`, and with the same command
+line parameters.
 
-There are some things that this converter won't be able to translate
-automatically. These are:
+# Options
 
-1) Embedded `<random>` tags are not supported. Currently none of the RiveScript
-interpreters are able to handle embedded random tags either.
+```
+-aiml
+    Convert from RiveScript to AIML. This option is mutually exclusive
+    with `-rs`.
 
-2) Complicated conditionals. There are only a couple of these in Alice's AIML
-set. Simple conditions should work though (ones where there is only one
-`<condition>` tag, and it takes up the entirety of the template). Embedded
-conditions? Forget about it.
+-rs
+    Convert from AIML to RiveScript. This option is mutually exclusive
+    with `-aiml`.
 
-For the cases that `aiml2rs` doesn't handle automatically, it will print out the
-AIML file name and `<pattern>` where the anomoly occurred, so that you can go
-and enter it in manually. `aiml2rs` won't attempt to generate RiveScript code for
-triggers that have issues like this.
+-in PATH
+    This should be a path to a directory containing your input files.
+    If you used `-rs`, this path should contain AIML files (*.aiml).
+    If you used `-aiml`, this should contain RiveScript files (*.rive).
 
-When converting from RiveScript back to AIML, the following limitations exist:
+-out PATH
+    This should be the path to a directory that you want your output
+    files to be written to. This path does not need to exist; it will
+    be created if needed.
 
-1) Nested parenthesis groups in triggers will be skipped. These are triggers
-where you include optionals INSIDE an alternation group, or any similar combination.
-These kinds of triggers can't be permutated cleanly, so are skipped.
+    The files in the output path will have the same names as the input
+    files, but with the file extension swapped, and obviously, with the
+    expected output format (RiveScript or AIML) inside.
 
-2) Nested `<set>` tags will be skipped (ie. `<set fav<star1>=<star2>>`, because
-AIML doesn't support this.
+-real-topics
+    The A.L.I.C.E. AIML brain makes liberal use of `<set topic>` where
+    it treats the topic as just another user variables. Topics have a
+    more strict meaning to RiveScript, so, by default, a `<set topic>`
+    in AIML becomes `<set alicetopic>` in RiveScript.
 
-3) Any conditionals besides a simple `<get variable> == value` will result in
-the entire reply being skipped, because AIML doesn't support any kind of
-condition except `==` on user variables.
+    If you want the RiveScript output to use 'real' topics (`> topic`
+    labels), provide the `-real-topics` option. Note that an Alice
+    bot converted this way will probably misbehave due to the difference
+    in topic behaviors between AIML and RiveScript.
 
-Alice AIML Quirks
-=================
+-v
+    Prints the program version and exits.
 
-There are a number of patterns in the Alice AIML set that are invalid (they
-contain foreign symbols for example). These patterns will be skipped when
-converting to RiveScript (a warning is given during the conversion process).
-
-Troubleshooting
-===============
-
-If the script crashes with an error that originated from `XML::Parser`, it is
-most likely because an invalid character appeared in the AIML input (for example
-a Unicode symbol). The error message is hard to read, but it will point you to
-the line number in the AIML document where the error occurred.
-
-The Alice set included in this repo was downloaded on May 9, 2012 and the Unicode
-symbols in it were removed. If you use your own AIML set and get these errors,
-you'll have to fix them yourself.
+-debug
+    Enable debug mode. This will result in very noisy output; for
+    example, in AIML-to-RS mode it will print every opening and
+    closing XML tag that it finds while parsing AIML files.
+```
